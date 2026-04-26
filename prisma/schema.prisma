@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum StockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+  PRE_ORDER
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// --- MODELS ---
+
+model User {
+  id             String     @id @default(uuid())
+  fullName       String
+  email          String     @unique
+  password       String
+  profileImage   String?
+  role           UserRole   @default(USER)
+  status         UserStatus @default(ACTIVE)
+  emailVerified  Boolean    @default(false)
+  isDeleted      Boolean    @default(false)
+  
+  // Relations
+  shop           Shop?      @relation("UserToShop")
+  addresses      Address[]
+  orders         Order[]
+  reviews        Review[]
+  favorites      Favorite[]
+  sentMessages   Message[]  @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   @default("SHIPPING") // SHIPPING, BILLING
+  fullName    String
+  phone       String
+  street      String
+  city        String
+  state       String?
+  zipCode     String
+  country     String   @default("Bangladesh")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Shop {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  logo          String?
+  coverImage    String?
+  description   String?
+  vendorId      String   @unique
+  vendor        User     @relation("UserToShop", fields: [vendorId], references: [id])
+  isVerified    Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  
+  products      Product[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Product {
+  id               String      @id @default(uuid())
+  name             String
+  slug             String      @unique
+  shortDesc        String?
+  longDesc         String?
+  regularPrice     Float?
+  salePrice        Float
+  sku              String?     @unique
+  stockQuantity    Int         @default(0)
+  stockStatus      StockStatus @default(IN_STOCK)
+  thumbnail        String?
+  gallery          String[]
+  isFeatured       Boolean     @default(false)
+  isDeleted        Boolean     @default(false)
+  
+  // Relations
+  shopId           String
+  shop             Shop        @relation(fields: [shopId], references: [id])
+  brandId          String?
+  brand            Brand?      @relation(fields: [brandId], references: [id])
+  categories       Category[]  @relation("ProductToCategory")
+  tags             Tag[]       @relation("ProductToTag")
+  variants         ProductVariant[]
+  orderItems       OrderItem[]
+  reviews          Review[]
+  favorites        Favorite[]
+  flashSaleItems   FlashSaleItem[]
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  name      String   // e.g., "Color: Red, Size: XL"
+  price     Float?   // Override product price if needed
+  stock     Int      @default(0)
+  sku       String?  @unique
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  icon        String?
+  products    Product[] @relation("ProductToCategory")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  logo        String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  products  Product[] @relation("ProductToTag")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  status          OrderStatus   @default(PENDING)
+  totalAmount     Float
+  discountAmount  Float         @default(0)
+  shippingFee     Float         @default(0)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String
+  shippingAddress Json          // Snapshot of address at time of order
+  contactNumber   String
+  couponCode      String?
+  
+  orderItems      OrderItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float    // Price at time of purchase
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  discount    Float
+  type        String    @default("PERCENT") // PERCENT or FIXED
+  expiryDate  DateTime
+  usageLimit  Int?
+  usageCount  Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+model FlashSale {
+  id            String          @id @default(uuid())
+  name          String
+  startTime     DateTime
+  endTime       DateTime
+  items         FlashSaleItem[]
+  createdAt     DateTime        @default(now())
+}
+
+model FlashSaleItem {
+  id           String    @id @default(uuid())
+  flashSaleId  String
+  flashSale    FlashSale @relation(fields: [flashSaleId], references: [id])
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id])
+  discount     Float
+  stockLimit   Int       @default(0)
+  soldQuantity Int       @default(0)
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model SystemConfig {
+  id                   String  @id @default("singleton")
+  isMultiVendorEnabled Boolean @default(true)
+  platformCommission   Float   @default(10.0)
+  shippingFeeInside    Float   @default(60.0)
+  shippingFeeOutside   Float   @default(120.0)
+  updatedAt            DateTime @updatedAt
+}
+

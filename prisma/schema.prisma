@@ -7,9 +7,12 @@ datasource db {
 }
 
 
+// --- ENUMS ---
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
+  VENDOR
   USER
 }
 
@@ -48,6 +51,7 @@ model User {
   email          String     @unique
   password       String
   profileImage   String?
+  phoneNumber    String?
   role           UserRole   @default(USER)
   status         UserStatus @default(ACTIVE)
   emailVerified  Boolean    @default(false)
@@ -61,6 +65,8 @@ model User {
   favorites      Favorite[]
   sentMessages   Message[]  @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
+  blogs          Blog[]
+  cart           Cart?
   
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -127,6 +133,7 @@ model Product {
   reviews          Review[]
   favorites        Favorite[]
   flashSaleItems   FlashSaleItem[]
+  cartItems        CartItem[]
 
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
@@ -149,6 +156,7 @@ model Category {
   slug        String    @unique
   description String?
   icon        String?
+  isDeleted   Boolean   @default(false)
   products    Product[] @relation("ProductToCategory")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -276,4 +284,43 @@ model SystemConfig {
   shippingFeeOutside   Float   @default(120.0)
   updatedAt            DateTime @updatedAt
 }
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+}
+
+model Blog {
+  id        String   @id @default(uuid())
+  title     String
+  titleBn   String?
+  slug      String   @unique
+  content   String
+  image     String?
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  category  String?
+  tags      String[]
+  isPublished Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 

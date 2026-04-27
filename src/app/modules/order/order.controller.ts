@@ -29,7 +29,46 @@ const getMyOrders = catchAsync(async (req: Request & { user?: any }, res: Respon
     });
 });
 
+const getAllOrders = catchAsync(async (req: Request, res: Response) => {
+    const filters = pick(req.query, ['searchTerm', 'status']);
+    const options = pick(req.query, ['page', 'limit', 'sortBy', 'sortOrder']);
+    const result = await OrderService.getAllOrders(filters, options);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: "Orders fetched successfully",
+        meta: result.meta,
+        data: result.data
+    });
+});
+
+const getOrderById = catchAsync(async (req: Request, res: Response) => {
+    const result = await OrderService.getOrderById(req.params.id as string);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: "Order fetched successfully",
+        data: result
+    });
+});
+
+const updateOrderStatus = catchAsync(async (req: Request, res: Response) => {
+    const result = await OrderService.updateOrderStatus(req.params.id as string, req.body.status);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: "Order status updated successfully",
+        data: result
+    });
+});
+
 export const OrderController = {
     createOrder,
-    getMyOrders
+    getMyOrders,
+    getAllOrders,
+    getOrderById,
+    updateOrderStatus
 };

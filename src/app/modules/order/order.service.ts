@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma.config.js';
 import { paginationHelper } from '../../utils/paginationHelper.js';
@@ -7,7 +8,7 @@ const createOrder = async (userId: string, payload: any) => {
     const { items, shippingAddress, contactNumber, paymentMethod } = payload;
 
     // Start transaction
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         let totalAmount = 0;
 
         // Calculate total and check stock
@@ -92,7 +93,69 @@ const getMyOrders = async (userId: string, options: any) => {
     };
 };
 
+const getAllOrders = async (filters: any, options: any) => {
+    const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+    const { searchTerm, status, ...filterData } = filters;
+
+    const andConditions: Prisma.OrderWhereInput[] = [];
+
+    if (searchTerm) {
+        andConditions.push({
+            OR: [
+                { orderNumber: { contains: searchTerm, mode: 'insensitive' } },
+                { contactNumber: { contains: searchTerm, mode: 'insensitive' } }
+            ]
+        });
+    }
+
+    if (status) {
+        andConditions.push({ status });
+    }
+
+    const whereConditions = andConditions.length > 0 ? { AND: andConditions } : {};
+
+    const result = await prisma.order.findMany({
+        where: whereConditions,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+            user: { select: { fullName: true, email: true } },
+            orderItems: { include: { product: true } }
+        }
+    });
+
+    const total = await prisma.order.count({ where: whereConditions });
+
+    return {
+        meta: { page, limit, total },
+        data: result
+    };
+};
+
+const getOrderById = async (id: string) => {
+    const result = await prisma.order.findUnique({
+        where: { id },
+        include: {
+            user: { select: { fullName: true, email: true, phoneNumber: true } },
+            orderItems: { include: { product: true } }
+        }
+    });
+    if (!result) throw new AppError(StatusCodes.NOT_FOUND, "Order not found");
+    return result;
+};
+
+const updateOrderStatus = async (id: string, status: any) => {
+    return await prisma.order.update({
+        where: { id },
+        data: { status }
+    });
+};
+
 export const OrderService = {
     createOrder,
-    getMyOrders
+    getMyOrders,
+    getAllOrders,
+    getOrderById,
+    updateOrderStatus
 };

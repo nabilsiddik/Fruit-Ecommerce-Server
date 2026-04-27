@@ -1,8 +1,7 @@
-import type { Prisma } from "../../../../generated/prisma/index.js";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma.config.js";
 import { paginationHelper } from "../../utils/paginationHelper.js";
 import { productSearchableFields } from "./product.constants.js";
-
 
 const createProduct = async (payload: any, userId: string) => {
     // 1. Get System Configuration
